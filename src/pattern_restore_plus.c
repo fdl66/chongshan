@@ -481,6 +481,8 @@ void* pattern_restore_plus_thread(void *arg) {
     ht_pattern_chunks = g_hash_table_new_full(g_int_hash, (GEqualFunc)g_fingerprint_equal, NULL, free);
     
     while (1) {
+        TIMER_DECLARE(1);
+        TIMER_BEGIN(1);
         assert(s2 == NULL);
         //generate chunk list of s2 by looking forward
         while (c && !s2) {
@@ -514,13 +516,16 @@ void* pattern_restore_plus_thread(void *arg) {
             GSequenceIter *s1_iter = g_sequence_get_begin_iter(s1_chunk_list);
             struct chunk* ch = (struct chunk*)g_sequence_get(s1_iter);
             //fdl 
-            TIMER_DECLARE(1);
-            TIMER_BEGIN(1);
+            //^^^^^^^^^^^TIMER_DECLARE(1);
+            //^^^^^^^^^^^^TIMER_BEGIN(1);
             //fdl 
             
             //read the container meta data by the container id of the chunk
             //cache a certain number of container meta data
             struct containerMeta *me = lru_cache_lookup(metaCache, &ch->id);
+//I need to Add Add Add!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
             if (!me) {
                 DEBUG("meta cache: container %lld is missed and load it from storage", ch->id);
                 //not found in meta cache, then get the meta data from the lower storage and store into meta cache
@@ -563,7 +568,7 @@ void* pattern_restore_plus_thread(void *arg) {
                     read_data_by_pattern(pattern, s1_chunk_list, t_chunk_list, s1_cur_len, t_num, buff);
                     //NOTICE("go s1 way---3");
                 }
-                TIMER_END(1,jcr.read_chunk_time);
+                //^^^^^^^^^^^^^^^^TIMER_END(1,jcr.read_chunk_time);
             }else {
                 //NOTICE("go s1 and s2 way---0");
                 //generate the merged patterns in seqence s1, s2 and t
@@ -584,7 +589,7 @@ void* pattern_restore_plus_thread(void *arg) {
                     read_data_by_merged_pattern(pattern, s1_chunk_list, s2_chunk_list, t_chunk_list, s1_cur_len, s2_cur_len, t_num, buff);
                     //NOTICE("go s1 and s2 way---3");
                 }
-                TIMER_END(1,jcr.read_chunk_time);
+                //^^^^^^^^^^^^^^TIMER_END(1,jcr.read_chunk_time);
             }
             
             assert(s1_chunk_list);
@@ -598,6 +603,8 @@ void* pattern_restore_plus_thread(void *arg) {
             }
             free(pattern);
         }
+        TIMER_END(1,jcr.read_chunk_time);
+
         assert(s1_cur_len==0);
         g_sequence_free(s1_chunk_list);
         s1_chunk_list = s2_chunk_list;
@@ -611,13 +618,15 @@ void* pattern_restore_plus_thread(void *arg) {
         jcr.chunk_num+=s1->chunk_num;
         //fdl
         //send chunks into next phase
+        //^^^^^^^^^^^^^TIMER_DECLARE(1);
+        //^^^^^^^^^^^TIMER_BEGIN(1);
         send_segment_to_restore(s1);
+        //^^^^^^^^^^^^TIMER_END(1,jcr.read_chunk_time);
         assert(s1->chunk_num == 0);
         free_segment(s1);
         
         s1 = s2;
         s2 = NULL;
-        
         if (c == NULL && s1==NULL)
         break;
     }

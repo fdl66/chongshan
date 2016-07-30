@@ -229,8 +229,8 @@ void do_restore(int revision, char *path) {
 	destor_log(DESTOR_NOTICE, "backup path: %s", jcr.bv->path);
 	destor_log(DESTOR_NOTICE, "restore to: %s", jcr.path);
 
-	restore_chunk_queue = sync_queue_new(100);
-	restore_recipe_queue = sync_queue_new(100);
+	restore_chunk_queue = sync_queue_new(1024);
+	restore_recipe_queue = sync_queue_new(1024);
 
 	TIMER_DECLARE(1);
 	TIMER_BEGIN(1);
