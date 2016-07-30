@@ -7,32 +7,6 @@
 
 extern void init_segmenting_method();
 
-static pthread_cond_t cond;  
-static pthread_mutex_t mutex;  
-
-/*********************fdl********************************************
-static pthread_t thread_wait; 
-static pthread_cond_t cond;  
-static pthread_mutex_t mutex;  
-static int flag = 1;
-
-void * thr_wait(void *arg)
-{
-    struct timeval now;
-    struct timespec outtime;
-    pthread_mutex_lock(&mutex);
-    while(jcr.status == JCR_STATUS_RUNNING || jcr.status != JCR_STATUS_DONE){
-        gettimeofday(&now, NULL);  
-        outtime.tv_sec = now.tv_sec + 5;  
-        outtime.tv_nsec = now.tv_usec * 1000;  
-        pthread_cond_timedwait(&cond, &mutex, &outtime); 
-    }
-    pthread_mutex_unlock(&mutex); 
-}
-
-
-
-*********************fdl********************************************/
 static void* lru_restore_thread(void *arg) {
 	struct lruCache *cache;
 	if (destor.simulation_level >= SIMULATION_RESTORE)
@@ -210,7 +184,6 @@ void* write_restore_data(void* arg) {
 	}
 
     jcr.status = JCR_STATUS_DONE;
-    pthread_cond_signal(&cond);
     return NULL;
 }
 
@@ -218,9 +191,6 @@ void do_restore(int revision, char *path) {
 	init_recipe_store();
 	init_container_store();
     
-    pthread_mutex_init(&mutex, NULL);  
-    pthread_cond_init(&cond, NULL);  
-
     init_segmenting_method();
 
 	init_restore_jcr(revision, path);
@@ -252,6 +222,7 @@ void do_restore(int revision, char *path) {
 		pthread_create(&read_t, NULL, assembly_restore_thread, NULL);
     } else if (destor.restore_cache[0] == RESTORE_CACHE_PATTERN) {
         destor_log(DESTOR_NOTICE, "restore cache is PATTERN");
+        
         pthread_create(&read_t, NULL, pattern_restore_plus_thread, NULL);
     } else {
 		fprintf(stderr, "Invalid restore cache.\n");
@@ -260,33 +231,12 @@ void do_restore(int revision, char *path) {
 
 	pthread_create(&write_t, NULL, write_restore_data, NULL);
 
-    //do{
-        ;//sleep(0.1);
-        //time_t now = time(NULL);
-        //fprintf(stderr, "%" PRId64 " bytes, %" PRId32 " chunks, %d files processed\r", 
-        //        jcr.data_size, jcr.chunk_num, jcr.file_num);
-    //}while(jcr.status == JCR_STATUS_RUNNING || jcr.status != JCR_STATUS_DONE);
-    
-    
-    struct timeval now;
-    struct timespec outtime;
-    pthread_mutex_lock(&mutex);
-    while(jcr.status == JCR_STATUS_RUNNING || jcr.status != JCR_STATUS_DONE){
+    do{
+        sleep(5);
+        /*time_t now = time(NULL);*/
         fprintf(stderr, "%" PRId64 " bytes, %" PRId32 " chunks, %d files processed\r", 
                 jcr.data_size, jcr.chunk_num, jcr.file_num);
-        gettimeofday(&now, NULL);  
-        outtime.tv_sec = now.tv_sec + 5;  
-        outtime.tv_nsec = now.tv_usec * 1000;  
-        pthread_cond_timedwait(&cond, &mutex, &outtime); 
-    }
-    pthread_mutex_unlock(&mutex); 
-    /***********************************fdl*************************
-    pthread_mutex_init(&mutex, NULL);  
-    pthread_cond_init(&cond, NULL); 
-    if (0 != pthread_create(&thread_wait, NULL, thr_wait, NULL)) {
-        exit(1);
-    }
-    **********************************fdl**************************/
+    }while(jcr.status == JCR_STATUS_RUNNING || jcr.status != JCR_STATUS_DONE);
     fprintf(stderr, "%" PRId64 " bytes, %" PRId32 " chunks, %d files processed\n", 
         jcr.data_size, jcr.chunk_num, jcr.file_num);
 

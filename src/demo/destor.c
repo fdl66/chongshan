@@ -269,6 +269,7 @@ void destor_stat() {
 int main(int argc, char **argv) {
 
 	destor_start();
+
 	int job = DESTOR_BACKUP;
 	int revision = -1;
 

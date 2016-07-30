@@ -52,12 +52,13 @@ struct jcr{
 	double rewrite_time;
 	double filter_time;
 	double write_time;
-
+    /*for restore time cosuming */
 	double read_recipe_time;
 	double read_chunk_time;
 	double write_chunk_time;
 
 	int32_t read_container_num;
+    int32_t read_cached_container_num;
 };
 
 extern struct jcr jcr;

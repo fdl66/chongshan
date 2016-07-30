@@ -319,41 +319,42 @@ void load_config_from_string(sds config) {
 				&& argc == 2) {
 			destor.rewrite_enable_cache_aware = yesnotoi(argv[1]);
 		} else if (strcasecmp(argv[0], "restore-cache") == 0 && argc == 3) {
-			if (strcasecmp(argv[1], "lru") == 0){
+			if (strcasecmp(argv[1], "lru") == 0)
 				destor.restore_cache[0] = RESTORE_CACHE_LRU;
-            }else if (strcasecmp(argv[1], "pattern") == 0){
+            else if (strcasecmp(argv[1], "pattern") == 0)
                 destor.restore_cache[0] = RESTORE_CACHE_PATTERN;
-            }else if (strcasecmp(argv[1], "optimal cache") == 0
-					|| strcasecmp(argv[1], "opt") == 0){
+            else if (strcasecmp(argv[1], "optimal cache") == 0
+					|| strcasecmp(argv[1], "opt") == 0)
 				destor.restore_cache[0] = RESTORE_CACHE_OPT;
-            }else if (strcasecmp(argv[1], "forward assembly") == 0
-					|| strcasecmp(argv[1], "asm") == 0){
+			else if (strcasecmp(argv[1], "forward assembly") == 0
+					|| strcasecmp(argv[1], "asm") == 0)
 				destor.restore_cache[0] = RESTORE_CACHE_ASM;
-            }else {
+			else {
 				err = "Invalid restore cache";
 				goto loaderr;
 			}
 			destor.restore_cache[1] = atoi(argv[2]);
-
 		} else if (strcasecmp(argv[0], "restore-opt-window-size") == 0
 				&& argc == 2) {
 			destor.restore_opt_window_size = atoi(argv[1]);
-        } else if (strcasecmp(argv[0], "size-of-meta-cache") == 0
+        } else if (strcasecmp(argv[0], "num-chunks-in-data-cache") == 0
                     && argc == 2) {
+            destor.num_chunks_in_data_cache = atoi(argv[1]);
+        } else if (strcasecmp(argv[0], "size-of-meta-cache") == 0
+                   && argc == 2) {
             destor.size_of_meta_cache = atoi(argv[1]);
         } else if (strcasecmp(argv[0], "backup-retention-time") == 0
 				&& argc == 2) {
 			destor.backup_retention_time = atoi(argv[1]);
-		} 
+		}
         else if (strcasecmp(argv[0], "prefetch-container-percent") == 0
-                && argc == 2) {
+                 && argc == 2) {
             destor.prefetch_container_percent = atof(argv[1]);
         }
         else if (strcasecmp(argv[0], "wildcard-length") == 0
-                && argc == 2) {
+                 && argc == 2) {
             destor.wildcard_length = atoi(argv[1]);
-        }
-        else {
+        }else {
 			err = "Bad directive or wrong number of arguments";
 			goto loaderr;
 		}

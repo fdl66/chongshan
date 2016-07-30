@@ -28,7 +28,6 @@ static void init_assembly_area() {
  * Return NULL if area is empty.
  */
 static GQueue* assemble_area() {
-
 	if (g_sequence_get_length(assembly_area.area) == 0)
 		return NULL;
 
@@ -58,7 +57,7 @@ static GQueue* assemble_area() {
 	jcr.read_container_num++;
 	VERBOSE("Restore cache: container %lld is missed", id);
 	if (destor.simulation_level == SIMULATION_NO)
-		con = retrieve_container_by_id(id);
+		con = retrieve_container_by_id(id);//still read the whole container!
 
 	/* assemble the area */
 	GSequenceIter *iter = g_sequence_get_begin_iter(assembly_area.area);
@@ -77,13 +76,12 @@ static GQueue* assemble_area() {
 			SET_CHUNK(c, CHUNK_READY);
 		}
 	}
-    //free_chunk(c);//!!!!!!!!!
-    if(destor.simulation_level == SIMULATION_NO){
-        free_container(con);
+    //adding the follows
+    //-----------------
+    if (destor.simulation_level == SIMULATION_NO) {
+        free_container(con);//!!!
     }
-
-
-
+    //-----------------
 
 	/* issue the assembled area */
 	begin = g_sequence_get_begin_iter(assembly_area.area);
@@ -100,7 +98,6 @@ static GQueue* assemble_area() {
 		} else {
 			break;
 		}
-        //free_chunk(rc);//!!!!!!!!!
 	}
 	return q;
 }
@@ -116,9 +113,8 @@ static int assembly_area_push(struct chunk* c) {
 		return 0;
 
 	assembly_area.size += c->size;
-
 	if (assembly_area.size >= assembly_area.area_size)
-		return 1;
+		return 1;//the area is filled fully
 
 	return 0;
 }
@@ -128,19 +124,11 @@ void* assembly_restore_thread(void *arg) {
 
 	struct chunk* c;
 	while ((c = sync_queue_pop(restore_recipe_queue))) {
-		//fdl 
-        if (!CHECK_CHUNK(c,CHUNK_FILE_START) && !CHECK_CHUNK(c, CHUNK_FILE_END)) {
-            jcr.data_size += c->size;
-            jcr.chunk_num++;
-	    }
-        //fdl 
 		TIMER_DECLARE(1);
 		TIMER_BEGIN(1);
-
 		if (assembly_area_push(c)) {
-			/* Full */
+            //returning true means that the area is filled fully
 			GQueue *q = assemble_area();
-
 			TIMER_END(1, jcr.read_chunk_time);
 
 			struct chunk* rc;
@@ -154,17 +142,17 @@ void* assembly_restore_thread(void *arg) {
 					}
 				}
 				sync_queue_push(restore_chunk_queue, rc);
-                //free_chunk(rc);//!!!!!!!!!
 			}
 
 			g_queue_free(q);
 		} else {
 			TIMER_END(1, jcr.read_chunk_time);
 		}
+
 	}
 
-	assembly_area_push(NULL);
-
+    //the last processing
+	assembly_area_push(NULL);//the end
 	GQueue *q;
 	TIMER_DECLARE(1);
 	TIMER_BEGIN(1);
@@ -181,7 +169,6 @@ void* assembly_restore_thread(void *arg) {
 				}
 			}
 			sync_queue_push(restore_chunk_queue, rc);
-            //free_chunk(rc);//!!!!!!!!!
 		}
 		TIMER_BEGIN(1);
 		g_queue_free(q);

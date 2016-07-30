@@ -8,7 +8,6 @@
 #include "utils/lru_cache.h"
 
 
-#define WILDCARD_LENGTH 30
 struct pattern_chunk{
     struct metaEntry *me;
     unsigned char* data;
@@ -162,7 +161,7 @@ void read_data_by_pattern(int *pattern, GSequence *a, GList *b, int a_len, int b
             memcpy(ch->data, pch->data, ch->size);
             
             //insert the new chunk into data cache
-            if (destor.restore_cache[1])
+            if (destor.num_chunks_in_data_cache)
                 insert_chunk_into_data_cache(ch);
             
             GSequenceIter *t = g_sequence_iter_next(a_iter);
@@ -233,7 +232,7 @@ int* generate_pattern(GSequence *a, GList *b, int a_len, int b_len){
         while (pattern[j+d] == 0) d++;
         if (j+d >=b_len)
             break;
-        if (d<=WILDCARD_LENGTH) {
+        if (d<=destor.wildcard_length) {
             for (i=0; i<d; i++)
                 pattern[j+i] = 2;
         }
@@ -309,7 +308,7 @@ void read_data_by_merged_pattern(int *pattern, GSequence *a1, GSequence *a2, GLi
             memcpy(ch->data, pch->data, ch->size);
             
             //insert the new chunk into data cache
-            if (destor.restore_cache[1])
+            if (destor.num_chunks_in_data_cache)
                 insert_chunk_into_data_cache(ch);
             
             GSequenceIter *t = g_sequence_iter_next(a_iter);
@@ -399,7 +398,7 @@ int* generate_merged_pattern(GSequence *a1, GSequence *a2, GList *b, int a1_len,
         while (pattern[j+d] == 0) d++;
         if (j+d >=b_len)
             break;
-        if (d<=WILDCARD_LENGTH) {
+        if (d<=destor.wildcard_length) {
             for (i=0; i<d; i++)
                 pattern[j+i] = 3;
         }
@@ -421,10 +420,6 @@ static void send_segment_to_restore (struct segment *s){
         GSequenceIter *begin = g_sequence_get_begin_iter(s->chunks);
         while(begin != end) {
             struct chunk* c = g_sequence_get(begin);
-            //fdl
-            if(!CHECK_CHUNK(c,CHUNK_FILE_START)&&!CHECK_CHUNK(c,CHUNK_FILE_END))
-            jcr.data_size+=c->size;
-            //fdl
             sync_queue_push(restore_chunk_queue, c);
             
             g_sequence_remove(begin);
@@ -496,10 +491,10 @@ void* pattern_restore_thread(void *arg) {
     metaCache = new_lru_cache(destor.size_of_meta_cache, (void*)free_container_meta, container_meta_check_id);
     //data cache
     
-    if (destor.restore_cache[1]){
-        DEBUG("the number of chunks is %d in the data cache", destor.restore_cache[1]);
+    if (destor.num_chunks_in_data_cache){
+        DEBUG("the number of chunks is %d in the data cache", destor.num_chunks_in_data_cache);
         
-        dataCache = new_lru_cache(destor.restore_cache[1], (void*)free_chunk, NULL);
+        dataCache = new_lru_cache(destor.num_chunks_in_data_cache, (void*)free_chunk, NULL);
         ht_dataCache = g_hash_table_new_full(g_int_hash, (GEqualFunc)g_fingerprint_equal, NULL, NULL);
     }
     
@@ -507,8 +502,6 @@ void* pattern_restore_thread(void *arg) {
     while (!s1) {
         c = sync_queue_pop(restore_recipe_queue);
         /* Add the chunk to the segment1. */
-        //jcr.data_size += c->size;
-
         s1 = (struct segment*)segmenting(c);
     }
     s1_chunk_list = generate_unread_list(s1, &s1_cur_len);
@@ -523,9 +516,7 @@ void* pattern_restore_thread(void *arg) {
         while (c && !s2) {
             c = sync_queue_pop(restore_recipe_queue);
             /* Add the chunk to the segment2. */
-
             s2 = (struct segment*)segmenting(c);
-
         }
         
         GSequence *s2_chunk_list = g_sequence_new(NULL);
@@ -535,7 +526,7 @@ void* pattern_restore_thread(void *arg) {
         }
         
         //lookup in data cache
-        if (destor.restore_cache[1]) {
+        if (destor.num_chunks_in_data_cache) {
             //check and remove cached chunks in s1 list
             if(s1_cur_len)
                 remove_cached_chunks_in_unread_list(s1_chunk_list, &s1_cur_len);
@@ -552,8 +543,6 @@ void* pattern_restore_thread(void *arg) {
             GSequenceIter *s1_iter = g_sequence_get_begin_iter(s1_chunk_list);
             struct chunk* ch = (struct chunk*)g_sequence_get(s1_iter);
             
-            TIMER_DECLARE(1);
-            TIMER_BEGIN(1);
             //read the container meta data by the container id of the chunk
             //cache a certain number of container meta data
             struct containerMeta *me = lru_cache_lookup(metaCache, &ch->id);
@@ -584,12 +573,7 @@ void* pattern_restore_thread(void *arg) {
                 buff = allocate_data_buffer(pattern, t_chunk_list, t_num);
                 //NOTICE("go s1 way---2");
                 //read data
-                
-                
                 read_data_by_pattern(pattern, s1_chunk_list, t_chunk_list, s1_cur_len, t_num, buff);
-                
-                TIMER_END(1,jcr.read_chunk_time);
-                
                 //NOTICE("go s1 way---3");
             }else {
                 //NOTICE("go s1 and s2 way---0");
@@ -601,7 +585,6 @@ void* pattern_restore_thread(void *arg) {
                 //NOTICE("go s1 and s2 way---2");
                 //read data
                 read_data_by_merged_pattern(pattern, s1_chunk_list, s2_chunk_list, t_chunk_list, s1_cur_len, s2_cur_len, t_num, buff);
-                TIMER_END(1,jcr.read_chunk_time);
                 //NOTICE("go s1 and s2 way---3");
             }
             assert(s1_chunk_list);
@@ -609,6 +592,7 @@ void* pattern_restore_thread(void *arg) {
             assert(s2_chunk_list);
             s2_cur_len = g_sequence_get_length(s2_chunk_list);
             DEBUG("the remained length of s1 is %d and s2 is %d", s1_cur_len, s2_cur_len);
+            
             free(buff);
             free(pattern);
         }
@@ -621,10 +605,6 @@ void* pattern_restore_thread(void *arg) {
         s2_cur_len = 0;
         
         DEBUG("send a segment which has %d chunks to restore", s1->chunk_num);
-        
-        //fdl
-        jcr.chunk_num+=s1->chunk_num;
-        //fdl
         //send chunks into next phase
         send_segment_to_restore(s1);
         assert(s1->chunk_num == 0);
@@ -644,7 +624,7 @@ void* pattern_restore_thread(void *arg) {
     
     g_hash_table_destroy(ht_pattern_chunks);
     free_lru_cache(metaCache);
-    if (destor.restore_cache[1]) {
+    if (destor.num_chunks_in_data_cache) {
         free_lru_cache(dataCache);
         g_hash_table_destroy(ht_dataCache);
     }

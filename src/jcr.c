@@ -60,6 +60,7 @@ void init_jcr(char *path) {
 	jcr.write_chunk_time = 0;
 
 	jcr.read_container_num = 0;
+    jcr.read_cached_container_num = 0;
 }
 
 void init_backup_jcr(char *path) {

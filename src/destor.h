@@ -266,6 +266,8 @@ struct destor {
     /*-------------------------------*/
     
     /* For pattern restore*/
+    int num_chunks_in_data_cache;//temperal reserved variable
+    
     int size_of_meta_cache;
     int wildcard_length;
     double prefetch_container_percent;
@@ -308,6 +310,8 @@ struct destor {
 	int32_t live_container_num;
 
 	int backup_retention_time;
+    
+    
 
 } destor;
 
